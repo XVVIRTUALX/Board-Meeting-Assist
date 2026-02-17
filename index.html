@@ -8,7 +8,7 @@
   <style>
     body {
       font-family: Arial, Helvetica, sans-serif;
-      background: #f3f4f6;
+      background: orange;
       margin: 0;
       padding: 0;
       display: flex;
@@ -16,20 +16,6 @@
       align-items: center;
       min-height: 100vh;
     }
-<footer style="
-  position: fixed;
-  bottom: 0;
-  width: 100%;
-  background: rgba(0,0,0,0.8);
-  color: white;
-  text-align: center;
-  padding: 8px;
-  font-size: 13px;
-">
-  © 2026 PutaiaoTech – Board Meeting Assist App  
-Mana pupuri katoa. All Rights Reserved.
-
-</footer>
 
     .card {
       background: white;
@@ -211,4 +197,51 @@ Mana pupuri katoa. All Rights Reserved.
     function buildText(){
       let text = `PutaiaoTech Assist – Board Meetings\n`;
       text += `User: ${user}\nDate: ${meetingDate}\n`;
-      text += `Framework: ${framework ? "Te Tiriti Overlay" :
+      text += `Framework: ${framework ? "Te Tiriti Overlay" : "Standard"}\n\n`;
+
+      questions.forEach((q,i)=>{
+        text += `${i+1}. ${q}\n${answers[i]||"No response"}\n\n`;
+      });
+
+      return text;
+    }
+
+    function saveJSON(){
+      const blob = new Blob([JSON.stringify({user,meetingDate,answers},null,2)],{type:"application/json"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="board-meeting-notes.json";
+      a.click();
+    }
+
+    function saveTXT(){
+      const blob = new Blob([buildText()],{type:"text/plain"});
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(blob);
+      a.download="board-meeting-minutes.txt";
+      a.click();
+    }
+
+    function emailMinutes(){
+      window.location.href =
+        "mailto:?subject=Board Meeting Minutes&body=" +
+        encodeURIComponent(buildText());
+    }
+
+    renderHome();
+  </script>
+<footer style="
+  position: fixed;
+  bottom: 0;
+  width: 100%;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  text-align: center;
+  padding: 8px;
+  font-size: 13px;
+">
+  © 2026 PutaiaoTech – Board Meeting Assist App  
+Mana pupuri katoa. All Rights Reserved.
+</footer>
+</body>
+</html>
