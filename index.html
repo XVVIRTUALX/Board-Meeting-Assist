@@ -1,284 +1,200 @@
-import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
-import { motion } from "framer-motion";
-import jsPDF from "jspdf";
-import { Document, Packer, Paragraph, TextRun } from "docx";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Board Meeting Assist App</title>
 
-/* ---------------- DEFAULT QUESTIONS ---------------- */
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
 
-const defaultQuestions = [
-  "Is our mission still relevant in this market?",
-  "What systemic risk are we blind to right now?",
-  "What’s our burn rate for innovation?",
-  "Which key person could we lose — and would we survive it?",
-  "How are we protecting the brand when no one’s watching?",
-  "What would destroy trust with our customers overnight?",
-  "Are we too reliant on a single revenue stream?",
-  "What would this company look like with zero bureaucracy?",
-  "How are we building moats, not just walls?",
-  "If we keep doing what we’re doing, will we still be alive in 5 years?",
-];
+    .card {
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      max-width: 700px;
+      width: 95%;
+    }
 
-export default function BoardMeetingAssistApp() {
-  const [home, setHome] = useState(true);
-  const [user, setUser] = useState("");
-  const [meetingDate] = useState(new Date().toLocaleString());
-  const [questions, setQuestions] = useState(defaultQuestions);
-  const [answers, setAnswers] = useState(
-    Array(defaultQuestions.length).fill("")
-  );
-  const [step, setStep] = useState(0);
-  const [saved, setSaved] = useState(false);
-  const [showFramework, setShowFramework] = useState(false);
+    h1, h2 {
+      text-align: center;
+      margin: 10px 0;
+    }
 
-  /* ---------------- QUESTION EDITOR ---------------- */
+    img {
+      width: 100%;
+      max-height: 260px;
+      object-fit: cover;
+      border-radius: 12px;
+      margin: 15px 0;
+    }
 
-  const updateQuestion = (value, index) => {
-    const updated = [...questions];
-    updated[index] = value;
-    setQuestions(updated);
-  };
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
 
-  /* ---------------- ANSWERS ---------------- */
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      margin-top: 10px;
+    }
 
-  const handleChange = (value) => {
-    const updated = [...answers];
-    updated[step] = value;
-    setAnswers(updated);
-  };
+    button {
+      padding: 10px 18px;
+      border: none;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      margin: 5px;
+    }
 
-  const nextStep = () => {
-    if (step < questions.length - 1) setStep(step + 1);
-  };
+    button:hover {
+      background: #1d4ed8;
+    }
 
-  const prevStep = () => {
-    if (step > 0) setStep(step - 1);
-  };
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
 
-  /* ---------------- DATA BUILD ---------------- */
+    .progress {
+      height: 10px;
+      background: #e5e7eb;
+      border-radius: 10px;
+      margin: 15px 0;
+      overflow: hidden;
+    }
 
-  const buildData = () => ({
-    app: "PutaiaoTech Assist – Board Meetings",
-    user,
-    meetingDate,
-    governanceFramework: showFramework
-      ? "Te Tiriti / Governance Overlay Applied"
-      : "Standard Governance",
-    responses: questions.map((q, i) => ({
-      question: q,
-      answer: answers[i],
-    })),
-  });
+    .bar {
+      height: 10px;
+      background: #16a34a;
+      width: 0%;
+    }
 
-  /* ---------------- SAVE JSON ---------------- */
+    .center { text-align: center; }
+  </style>
+</head>
+<body>
 
-  const saveJSON = () => {
-    const blob = new Blob([JSON.stringify(buildData(), null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "board-meeting-notes.json";
-    a.click();
-    setSaved(true);
-  };
+  <div class="card" id="app"></div>
 
-  /* ---------------- SAVE PDF ---------------- */
+  <script>
+    const questions = [
+      "Is our mission still relevant in this market?",
+      "What systemic risk are we blind to right now?",
+      "What’s our burn rate for innovation?",
+      "Which key person could we lose — and would we survive it?",
+      "How are we protecting the brand when no one’s watching?",
+      "What would destroy trust with our customers overnight?",
+      "Are we too reliant on a single revenue stream?",
+      "What would this company look like with zero bureaucracy?",
+      "How are we building moats, not just walls?",
+      "If we keep doing what we’re doing, will we still be alive in 5 years?"
+    ];
 
-  const savePDF = () => {
-    const doc = new jsPDF();
-    const data = buildData();
+    let step = 0;
+    let answers = Array(questions.length).fill("");
+    let user = "";
+    let framework = false;
+    const meetingDate = new Date().toLocaleString();
 
-    let y = 10;
-    doc.text(data.app, 10, y);
-    y += 10;
-    doc.text(`User: ${data.user}`, 10, y);
-    y += 10;
-    doc.text(`Meeting Date: ${data.meetingDate}`, 10, y);
-    y += 10;
+    const app = document.getElementById("app");
 
-    data.responses.forEach((r, i) => {
-      doc.text(`${i + 1}. ${r.question}`, 10, y);
-      y += 8;
-      doc.text(r.answer || "No response", 10, y);
-      y += 12;
-    });
+    function renderHome() {
+      app.innerHTML = `
+        <h1>PutaiaoTech Assist Product</h1>
+        <h2>Board Meetings – Assist App</h2>
 
-    doc.save("board-meeting-notes.pdf");
-  };
+        <img src="board-meeting-image.jpg" alt="Board Meeting" />
 
-  /* ---------------- SAVE DOCX ---------------- */
+        <p class="center">
+          Strategic governance questioning, risk tracking, and board intelligence capture.
+        </p>
 
-  const saveDOCX = async () => {
-    const data = buildData();
+        <input
+          type="text"
+          placeholder="Enter Board Member / Trustee Name"
+          oninput="user=this.value"
+        />
 
-    const doc = new Document({
-      sections: [
-        {
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({ text: data.app, bold: true, size: 32 }),
-              ],
-            }),
-            new Paragraph(`User: ${data.user}`),
-            new Paragraph(`Meeting Date: ${data.meetingDate}`),
-            ...data.responses.flatMap((r, i) => [
-              new Paragraph({
-                children: [
-                  new TextRun({ text: `${i + 1}. ${r.question}`, bold: true }),
-                ],
-              }),
-              new Paragraph(r.answer || "No response"),
-            ]),
-          ],
-        },
-      ],
-    });
+        <p>
+          <label>
+            <input type="checkbox" onchange="framework=this.checked" />
+            Enable Te Tiriti / Governance Framework Overlay
+          </label>
+        </p>
 
-    const blob = await Packer.toBlob(doc);
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "board-meeting-notes.docx";
-    a.click();
-  };
+        <div class="center">
+          <button onclick="startSession()">Start Board Session</button>
+        </div>
+      `;
+    }
 
-  /* ---------------- EMAIL MINUTES ---------------- */
+    function startSession() {
+      if (!user) {
+        alert("Please enter your name");
+        return;
+      }
+      renderQuestion();
+    }
 
-  const emailMinutes = () => {
-    const data = buildData();
+    function renderQuestion() {
+      const progress = ((step + 1) / questions.length) * 100;
 
-    let body = `${data.app}\nUser: ${data.user}\nDate: ${data.meetingDate}\n\n`;
+      app.innerHTML = `
+        <h2>Board Meeting Assist App</h2>
+        <p class="center">${meetingDate}</p>
 
-    data.responses.forEach((r, i) => {
-      body += `${i + 1}. ${r.question}\n${r.answer || "No response"}\n\n`;
-    });
+        <div class="progress">
+          <div class="bar" style="width:${progress}%"></div>
+        </div>
 
-    window.location.href = `mailto:?subject=Board Meeting Minutes&body=${encodeURIComponent(
-      body
-    )}`;
-  };
+        <h3>Question ${step + 1} of ${questions.length}</h3>
+        <p>${questions[step]}</p>
 
-  /* ---------------- HOMEPAGE ---------------- */
+        <textarea
+          onchange="answers[${step}] = this.value"
+        >${answers[step]}</textarea>
 
-  if (home) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-        <Card className="w-full max-w-2xl shadow-2xl rounded-2xl">
-          <CardContent className="p-10 text-center space-y-6">
-            <h1 className="text-3xl font-bold">
-              PutaiaoTech Assist Product
-            </h1>
+        <div class="nav">
+          <button onclick="prev()" ${step===0?"disabled":""}>Back</button>
 
-            <h2 className="text-xl font-semibold">
-              Board Meetings – Assist App
-            </h2>
+          ${step < questions.length-1
+            ? `<button onclick="next()">Next</button>`
+            : `<div>
+                <button onclick="saveJSON()">Save JSON</button>
+                <button onclick="saveTXT()">Save TXT</button>
+                <button onclick="emailMinutes()">Email</button>
+               </div>`}
+        </div>
+      `;
+    }
 
-            {/* Homepage Image */}
-            <img
-              src="/board-meeting-image.jpg"
-              alt="Board Meeting"
-              className="rounded-2xl shadow-md mx-auto"
-            />
+    function next(){ step++; renderQuestion(); }
+    function prev(){ step--; renderQuestion(); }
 
-            <p className="text-gray-600">
-              Strategic governance questioning, risk tracking, and board
-              intelligence capture.
-            </p>
-
-            <input
-              className="border p-3 rounded-xl w-full"
-              placeholder="Enter Board Member / Trustee Name"
-              value={user}
-              onChange={(e) => setUser(e.target.value)}
-            />
-
-            <div className="flex items-center gap-2 justify-center">
-              <input
-                type="checkbox"
-                onChange={() => setShowFramework(!showFramework)}
-              />
-              <span>Enable Te Tiriti / Governance Framework Overlay</span>
-            </div>
-
-            <Button onClick={() => setHome(false)}>
-              Start Board Session
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  /* ---------------- SESSION UI ---------------- */
-
-  const progress = ((step + 1) / questions.length) * 100;
-
-  return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <Card className="w-full max-w-3xl shadow-2xl rounded-2xl">
-        <CardContent className="p-8 space-y-6">
-          <motion.h1
-            className="text-2xl font-bold text-center"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            Board Meeting Assist App
-          </motion.h1>
-
-          <p className="text-center text-sm text-gray-500">
-            Meeting Date: {meetingDate}
-          </p>
-
-          <Progress value={progress} />
-
-          {/* Question Editor */}
-          <input
-            className="border p-2 rounded-xl w-full font-semibold"
-            value={questions[step]}
-            onChange={(e) => updateQuestion(e.target.value, step)}
-          />
-
-          <Textarea
-            placeholder="Enter board notes, risks, actions, or strategy updates..."
-            value={answers[step]}
-            onChange={(e) => handleChange(e.target.value)}
-            className="min-h-[160px]"
-          />
-
-          <div className="flex justify-between">
-            <Button
-              variant="outline"
-              onClick={prevStep}
-              disabled={step === 0}
-            >
-              Back
-            </Button>
-
-            {step < questions.length - 1 ? (
-              <Button onClick={nextStep}>Next</Button>
-            ) : (
-              <div className="flex gap-2 flex-wrap">
-                <Button onClick={saveJSON}>Save JSON</Button>
-                <Button onClick={savePDF}>Save PDF</Button>
-                <Button onClick={saveDOCX}>Save DOCX</Button>
-                <Button onClick={emailMinutes}>Email Minutes</Button>
-              </div>
-            )}
-          </div>
-
-          {saved && (
-            <p className="text-green-600 text-center font-medium">
-              Notes saved successfully ✔
-            </p>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+    function buildText(){
+      let text = `PutaiaoTech Assist – Board Meetings\n`;
+      text += `User: ${user}\nDate: ${meetingDate}\n`;
+      text += `Framework: ${framework ? "Te Tiriti Overlay" :
